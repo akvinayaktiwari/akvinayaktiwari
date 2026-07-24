@@ -1,4 +1,5 @@
 # 💫 About Me:
+🎓 Graduate of NIT Raipur'24
 🚀 Building AI infrastructure and developer tools that simplify how businesses adopt AI.<br><br>
 
 🔭 Building AI-first SaaS products<br>
