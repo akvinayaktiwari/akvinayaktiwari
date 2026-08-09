@@ -1,4 +1,4 @@
-name: Generate Contribution Snake
+name: Generate Profile Animations
 
 on:
   schedule:
@@ -55,6 +55,23 @@ jobs:
             dist/github-snake.svg
             dist/github-snake-dark.svg?palette=github-dark
         run: bun packages/action/index.ts
+
+      # Generated into the same output branch as the snake rather than committed
+      # back to main, so the repo stays source-only. No continue-on-error: the
+      # publish step replaces the whole branch, so a partial run would delete
+      # whichever file failed to build. Failing loudly leaves the last good
+      # output branch untouched instead.
+      - name: Generate the 3D contribution calendar
+        uses: yoshi389111/github-profile-3d-contrib@7d95e7d4cdc028dd1e1cbd957d65f35efb12ae39 # v0.9.3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          USERNAME: ${{ github.repository_owner }}
+
+      - name: Collect the 3D calendar alongside the snake
+        run: |
+          cp profile-3d-contrib/profile-night-green.svg .snk/dist/
+          cp profile-3d-contrib/profile-green-animate.svg .snk/dist/
+          ls -l .snk/dist/
 
       - name: Push the generated files to the output branch
         uses: crazy-max/ghaction-github-pages@v4

@@ -1,3 +1,11 @@
+<p align="center">
+  <img src="https://capsule-render.vercel.app/api?type=waving&color=0:0f6d31,100:39d353&height=170&section=header&text=Vinayak%20Tiwari&fontColor=ffffff&fontSize=42&fontAlignY=34&desc=AI%20Infrastructure%20%C2%B7%20Agents%20%C2%B7%20AWS&descAlignY=54&descSize=18&animation=fadeIn" alt="" />
+</p>
+
+<p align="center">
+  <img src="https://readme-typing-svg.demolab.com/?font=Fira+Code&size=21&duration=3000&pause=800&color=39D353&center=true&vCenter=true&width=700&height=54&lines=Building+AI-first+SaaS+products;MCP+servers+%26+intelligent+automation;Real-time+voice+AI+agents;Serverless+AI+infrastructure+on+AWS" alt="Building AI-first SaaS products" />
+</p>
+
 # 💫 About Me:
 🎓 Graduate of NIT Raipur'24. <br>
 🚀 Building AI infrastructure and developer tools that simplify how businesses adopt AI.<br><br>
@@ -109,6 +117,8 @@ The request path stays fast. Everything slow moves to a queue or a state machine
 
 ![](https://github-readme-stats.shion.dev/api/top-langs/?username=akvinayaktiwari&theme=dark&hide_border=false&include_all_commits=true&count_private=true&layout=compact)
 
+![](https://github-readme-activity-graph.vercel.app/graph?username=akvinayaktiwari&theme=github-compact&hide_border=true&area=true)
+
 ---
 
 ## 🐍 Watch My Contributions Get Eaten
@@ -117,6 +127,16 @@ The request path stays fast. Everything slow moves to a queue or a state machine
   <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/akvinayaktiwari/akvinayaktiwari/output/github-snake-dark.svg" />
   <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/akvinayaktiwari/akvinayaktiwari/output/github-snake.svg" />
   <img alt="snake eating my contribution graph" src="https://raw.githubusercontent.com/akvinayaktiwari/akvinayaktiwari/output/github-snake.svg" />
+</picture>
+
+---
+
+## 🧊 The Same Year, in 3D
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/akvinayaktiwari/akvinayaktiwari/output/profile-night-green.svg" />
+  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/akvinayaktiwari/akvinayaktiwari/output/profile-green-animate.svg" />
+  <img alt="3D contribution calendar" src="https://raw.githubusercontent.com/akvinayaktiwari/akvinayaktiwari/output/profile-night-green.svg" />
 </picture>
 
 ---
