@@ -26,6 +26,11 @@
 // The renderer is replaced too, because upstream's sizes every segment from
 // chain[0] and would break on a chain whose length changes.
 //
+// The route also ends where it began, the way upstream's getPathToPose does:
+// once the grid is clear the snake walks to the row above it and lays out
+// along it, then retracts into the starting pose, so the final frame is
+// identical to the first and the animation loops instead of cutting.
+//
 // Usage: node scripts/patch-snake-growth.mjs <path-to-snk-checkout>
 
 import { readFileSync, writeFileSync } from "node:fs";
@@ -221,10 +226,15 @@ const isSafe = (grid: Grid, cells: Point[], d: Point) => {
 };
 
 /** Last resort: stay alive and keep as much room as possible. */
-const survivalStep = (grid: Grid, cells: Point[]): Point | null => {
+const survivalStep = (
+  grid: Grid,
+  cells: Point[],
+  blockRow?: number,
+): Point | null => {
   let best: Point | null = null;
   let bestScore = -1;
   for (const a of around4) {
+    if (blockRow !== undefined && cells[0].y + a.y === blockRow) continue;
     if (!isSafe(grid, cells, a)) continue;
     const { next } = advance(grid, cells, a);
     const score = reachableCount(grid, next, next[0].x, next[0].y, 1000);
@@ -241,16 +251,151 @@ const survivalStep = (grid: Grid, cells: Point[]): Point | null => {
 };
 
 
+
+/** BFS step toward an arbitrary cell. Mirrors stepTowardFood's shape. */
+const stepTowardCell = (
+  grid: Grid,
+  cells: Point[],
+  tx: number,
+  ty: number,
+  blockRow?: number,
+): Point | null => {
+  const usable = (x: number, y: number) =>
+    isFree(grid, x, y) && (blockRow === undefined || y !== blockRow);
+  const head = cells[0];
+  if (head.x === tx && head.y === ty) return null;
+  const blocked = bodyBlocks(cells, false);
+
+  const seen = new Set<number>([keyOf(head.x, head.y)]);
+  const queue: { p: Point; first: Point }[] = [];
+
+  for (const a of around4) {
+    const nx = head.x + a.x;
+    const ny = head.y + a.y;
+    if (blocked.has(keyOf(nx, ny)) || !usable(nx, ny)) continue;
+    if (nx === tx && ny === ty) return a;
+    seen.add(keyOf(nx, ny));
+    queue.push({ p: { x: nx, y: ny }, first: a });
+  }
+
+  while (queue.length) {
+    const { p, first } = queue.shift()!;
+    for (const a of around4) {
+      const nx = p.x + a.x;
+      const ny = p.y + a.y;
+      const k = keyOf(nx, ny);
+      if (seen.has(k) || blocked.has(k) || !usable(nx, ny)) continue;
+      if (nx === tx && ny === ty) return first;
+      seen.add(k);
+      queue.push({ p: { x: nx, y: ny }, first });
+    }
+  }
+  return null;
+};
+
+/**
+ * After the grid is clear, bring the snake home so the animation loops instead
+ * of cutting. Home is the row just above the grid: the snake walks to the far
+ * right of that row and then straight left, which leaves its body stretched
+ * along the row with its first cells sitting exactly on the starting pose.
+ *
+ * Best effort -- if the snake cannot get there the chain is simply left as it
+ * is, and the loop cuts rather than the build failing.
+ */
+const returnHome = (
+  grid: Grid,
+  cells: Point[],
+  chain: Snake[],
+  home: Point[],
+) => {
+  const laneY = home[0].y;
+  const homeX = home[0].x;
+  const entryX = grid.width + MARGIN - 1;
+
+  /** Can the snake walk the whole lane from here without meeting itself? */
+  const laneIsClear = (from: Point[]) => {
+    let sim = from;
+    for (let x = from[0].x; x > homeX; x--) {
+      if (!isLegal(grid, sim, { x: -1, y: 0 })) return false;
+      sim = advance(grid, sim, { x: -1, y: 0 }).next;
+    }
+    return true;
+  };
+
+  let guard = MAX_STEPS;
+  // Approach one row below the lane, and treat the lane itself as a wall while
+  // doing it. That way no new body cell can be laid across the lane, so the
+  // cells still in it only have to drain away as the tail follows.
+  const stagingY = laneY + 1;
+
+  for (let attempt = 0; attempt < 64; attempt++) {
+    while (cells[0].x !== entryX || cells[0].y !== stagingY) {
+      if (guard-- <= 0) return cells;
+      const move =
+        stepTowardCell(grid, cells, entryX, stagingY, laneY) ??
+        survivalStep(grid, cells, laneY);
+      if (!move) return cells;
+      cells = advance(grid, cells, move).next;
+      chain.push(createSnakeFromCells(cells));
+    }
+
+    // Step up into the lane, then walk it -- but only once it is provably
+    // clear, otherwise circle below until the tail has drained out of it.
+    if (laneIsClear(advance(grid, cells, { x: 0, y: -1 }).next)) {
+      cells = advance(grid, cells, { x: 0, y: -1 }).next;
+      chain.push(createSnakeFromCells(cells));
+      while (cells[0].x > homeX) {
+        cells = advance(grid, cells, { x: -1, y: 0 }).next;
+        chain.push(createSnakeFromCells(cells));
+      }
+      return cells;
+    }
+
+    for (let i = 0; i < cells.length && guard-- > 0; i++) {
+      const move = survivalStep(grid, cells, laneY);
+      if (!move) return cells;
+      cells = advance(grid, cells, move).next;
+      chain.push(createSnakeFromCells(cells));
+    }
+  }
+
+  return cells;
+};
+
+/**
+ * The outro: the surplus body retracts into the starting pose so the last frame
+ * matches the first and the loop is seamless. This is not a game move -- a
+ * snake does not shrink -- so it is held to its own rules and validated apart
+ * from the play phase.
+ */
+const RETRACT_FRAMES = 12;
+
+const retractToPose = (cells: Point[], chain: Snake[], poseLength: number) => {
+  const surplus = cells.length - poseLength;
+  if (surplus <= 0) return;
+  const perFrame = Math.max(1, Math.ceil(surplus / RETRACT_FRAMES));
+  let length = cells.length;
+  while (length > poseLength) {
+    length = Math.max(poseLength, length - perFrame);
+    chain.push(createSnakeFromCells(cells.slice(0, length)));
+  }
+};
+
 /**
  * Re-derive the rules on the finished chain. The whole point of this solver is
  * legality, so it refuses to hand back a route it cannot prove: a bad chain
  * fails the build instead of publishing a snake that eats itself.
  */
-const assertLegal = (grid0: Grid, chain: Snake[], food: number) => {
+const assertLegal = (
+  grid0: Grid,
+  chain: Snake[],
+  food: number,
+  playFrames: number,
+) => {
   const startLen = snakeToCells(chain[0]).length;
   let ate = 0;
 
-  for (let t = 0; t < chain.length; t++) {
+  for (let t = 0; t < playFrames; t++) {
     const c = snakeToCells(chain[t]);
 
     const seen = new Set<number>();
@@ -283,9 +428,21 @@ const assertLegal = (grid0: Grid, chain: Snake[], food: number) => {
 
   if (ate !== food)
     throw new Error(\`grew \${ate} times but there are \${food} contributions\`);
-  const finalLen = snakeToCells(chain[chain.length - 1]).length;
-  if (finalLen !== startLen + food)
-    throw new Error(\`final length \${finalLen}, expected \${startLen + food}\`);
+  const playLen = snakeToCells(chain[playFrames - 1]).length;
+  if (playLen !== startLen + food)
+    throw new Error(\`length after play \${playLen}, expected \${startLen + food}\`);
+
+  // The outro may only shorten the snake from the tail; every remaining cell
+  // must stay exactly where it was.
+  for (let t = playFrames; t < chain.length; t++) {
+    const c = snakeToCells(chain[t]);
+    const prev = snakeToCells(chain[t - 1]);
+    if (c.length >= prev.length)
+      throw new Error(\`frame \${t}: outro did not shorten the snake\`);
+    for (let i = 0; i < c.length; i++)
+      if (c[i].x !== prev[i].x || c[i].y !== prev[i].y)
+        throw new Error(\`frame \${t}: outro moved segment \${i}\`);
+  }
 };
 
 /**
@@ -332,7 +489,15 @@ export const getGrowingRoute = (grid0: Grid, snake0: Snake): Snake[] | null => {
     chain.push(createSnakeFromCells(cells));
   }
 
-  assertLegal(grid0, chain, food);
+  const playFrames = (() => {
+    const home = snakeToCells(snake0);
+    cells = returnHome(grid, cells, chain, home);
+    const n = chain.length;
+    retractToPose(cells, chain, home.length);
+    return n;
+  })();
+
+  assertLegal(grid0, chain, food, playFrames);
 
   return chain;
 };
@@ -373,8 +538,17 @@ export const createSnake = (
     frames.findIndex((f) => i < f.length),
   );
 
+  // ...and stops existing when the outro retracts it back into the starting
+  // pose, so the last frame matches the first and the loop does not cut.
+  const diesAt = Array.from({ length: maxLength }, (_, i) => {
+    for (let t = frames.length; t--; ) if (i < frames[t].length) return t;
+    return frames.length - 1;
+  });
+
   const positionsOf = (i: number): Point[] =>
-    frames.map((f) => (i < f.length ? f[i] : frames[bornAt[i]][i]));
+    frames.map((f, t) =>
+      i < f.length ? f[i] : frames[t < bornAt[i] ? bornAt[i] : diesAt[i]][i],
+    );
 
   const sizeOf = (i: number) => {
     const dMin = sizeDot * 0.8;
@@ -399,8 +573,8 @@ export const createSnake = (
       ry: r.toFixed(1),
     });
 
-    // Segments present from the first frame need no reveal animation at all.
-    if (bornAt[i] <= 0) return rect;
+    // Segments that are present for the whole animation need no reveal at all.
+    if (bornAt[i] <= 0 && diesAt[i] >= frames.length - 1) return rect;
     return \`<g class="sg sg\${i}">\${rect}</g>\`;
   });
 
@@ -432,16 +606,26 @@ export const createSnake = (
         }\`,
       ];
 
-      if (bornAt[i] > 0) {
+      if (bornAt[i] > 0 || diesAt[i] < frames.length - 1) {
         const born = bornAt[i] / frames.length;
+        const dies = (diesAt[i] + 1) / frames.length;
         const gid = \`sg\${i}\`;
+        const fade = [
+          { t: 0, style: "opacity:0" },
+          { t: Math.max(0, born - 0.004), style: "opacity:0" },
+          { t: born, style: "opacity:1" },
+        ];
+        if (dies < 1) {
+          fade.push(
+            { t: Math.max(born, dies - 0.004), style: "opacity:1" },
+            { t: dies, style: "opacity:0" },
+            { t: 1, style: "opacity:0" },
+          );
+        } else {
+          fade.push({ t: 1, style: "opacity:1" });
+        }
         rules.push(
-          createAnimation(gid, [
-            { t: 0, style: "opacity:0" },
-            { t: Math.max(0, born - 0.004), style: "opacity:0" },
-            { t: born, style: "opacity:1" },
-            { t: 1, style: "opacity:1" },
-          ]),
+          createAnimation(gid, fade),
           \`.sg.\${gid}{ opacity:0; animation-name: \${gid} }\`,
         );
       }
