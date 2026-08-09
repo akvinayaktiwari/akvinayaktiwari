@@ -83,6 +83,16 @@
 
 ---
 
+## 🐍 Watch My Contributions Get Eaten
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/akvinayaktiwari/akvinayaktiwari/output/github-snake-dark.svg" />
+  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/akvinayaktiwari/akvinayaktiwari/output/github-snake.svg" />
+  <img alt="snake eating my contribution graph" src="https://raw.githubusercontent.com/akvinayaktiwari/akvinayaktiwari/output/github-snake.svg" />
+</picture>
+
+---
+
 ## 🏆 GitHub Trophies
 
 ![](https://github-profile-trophy.vercel.app/?username=akvinayaktiwari&theme=tokyonight&no-frame=false&margin-w=8)
