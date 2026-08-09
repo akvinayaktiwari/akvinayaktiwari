@@ -44,9 +44,22 @@
 ![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi)
 ![.NET](https://img.shields.io/badge/.NET-5C2D91.svg?style=for-the-badge&logo=.net&logoColor=white)
 
-### Cloud & DevOps
+### AWS
 
 ![AWS](https://img.shields.io/badge/AWS-%23FF9900.svg?style=for-the-badge&logo=amazon-aws&logoColor=white)
+![Lambda](https://img.shields.io/badge/Lambda-FF9900.svg?style=for-the-badge&logoColor=white)
+![DynamoDB](https://img.shields.io/badge/DynamoDB-4053D6.svg?style=for-the-badge&logoColor=white)
+![SQS](https://img.shields.io/badge/SQS-FF4F8B.svg?style=for-the-badge&logoColor=white)
+![Step Functions](https://img.shields.io/badge/Step_Functions-CD2264.svg?style=for-the-badge&logoColor=white)
+![EventBridge](https://img.shields.io/badge/EventBridge-E7157B.svg?style=for-the-badge&logoColor=white)
+![S3](https://img.shields.io/badge/S3-569A31.svg?style=for-the-badge&logoColor=white)
+![CloudFront](https://img.shields.io/badge/CloudFront-8C4FFF.svg?style=for-the-badge&logoColor=white)
+![Cognito](https://img.shields.io/badge/Cognito-DD344C.svg?style=for-the-badge&logoColor=white)
+![SES](https://img.shields.io/badge/SES-232F3E.svg?style=for-the-badge&logoColor=white)
+![KMS](https://img.shields.io/badge/KMS-DD344C.svg?style=for-the-badge&logoColor=white)
+
+### DevOps & Tooling
+
 ![Docker](https://img.shields.io/badge/Docker-2496ED.svg?style=for-the-badge&logo=docker&logoColor=white)
 ![GitHub Actions](https://img.shields.io/badge/GitHub%20Actions-%232671E5.svg?style=for-the-badge&logo=githubactions&logoColor=white)
 ![Jenkins](https://img.shields.io/badge/Jenkins-%232C5263.svg?style=for-the-badge&logo=jenkins&logoColor=white)
@@ -64,12 +77,27 @@
 
 # 🚀 Currently Building
 
-- 🤖 AI CRM Platform
-- 🔌 MCP Server Platform
-- 🎙️ Real-time Voice AI Agents
-- 💬 Multi-channel AI Customer Support
-- 🧠 AI Developer Tools
-- ☁️ Serverless AI Infrastructure on AWS
+- 🤖 An AI CRM where agents work leads instead of forms collecting them
+- 🔌 MCP servers that give those agents real tools — booking, reminders, quotes
+- 🎙️ Real-time voice AI agents with their own retrieval layer
+- 💬 Multi-channel support across web chat, WhatsApp, and inbound ads
+- ⚙️ Queue-backed ingestion — crawling, parsing, and embedding at scale
+- ☁️ Serverless AI infrastructure on AWS, event-driven end to end
+
+---
+
+# ⚙️ How I Build: Async by Default
+
+The request path stays fast. Everything slow moves to a queue or a state machine.
+
+- **Queue-backed ingestion (SQS)** — website crawls, PDF/DOCX parsing, and embedding jobs go out as typed job messages and get drained by a worker Lambda, so a 200-page crawl never blocks an API response
+- **Idempotent job claiming** — conditional writes let a worker claim a job exactly once, so an SQS redelivery re-runs nothing it already finished
+- **Step Functions for long-running agent journeys** — multi-day, multi-step workflows that park on a callback token while waiting for a human to reply, instead of holding a Lambda open for hours
+- **EventBridge Scheduler** — follow-ups, reminders, and re-checks scheduled per lead, rather than a cron sweep polling the whole table
+- **DynamoDB designed around access patterns** — partition keys chosen from the queries that actually run, GSIs only where one earns its keep
+- **Atomic claim tables** — single-writer guarantees for anything that must happen exactly once, so no lead ever gets contacted twice
+- **KMS-encrypted credentials, S3 presigned uploads, SES transactional email, Cognito JWT on every protected route**
+- **Serverless-first** — no idle servers, cost tracks real traffic
 
 ---
 
