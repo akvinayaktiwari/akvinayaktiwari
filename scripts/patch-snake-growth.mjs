@@ -1,5 +1,5 @@
 // Patches a checkout of Platane/snk so the snake actually grows as it eats,
-// the way a snake game works.
+// the way a snake game works, and so the animation loops cleanly.
 //
 // Why this is a patch and not an action input:
 //
@@ -23,13 +23,19 @@
 // against the rules before it is returned, so a bad route fails the build
 // instead of publishing a snake that eats itself.
 //
-// The renderer is replaced too, because upstream's sizes every segment from
-// chain[0] and would break on a chain whose length changes.
+// Everything then has to end where it began, or the loop cuts:
 //
-// The route also ends where it began, the way upstream's getPathToPose does:
-// once the grid is clear the snake walks to the row above it and lays out
-// along it, then retracts into the starting pose, so the final frame is
-// identical to the first and the animation loops instead of cutting.
+//   - the snake walks to the row above the grid once the board is clear, lays
+//     out along it, and retracts into the starting pose (upstream does the same
+//     thing with getPathToPose, which a growing snake cannot use);
+//   - the contribution cells grow back across that same outro window;
+//   - the stack bar unwinds across it too.
+//
+// The snake renderer is replaced because upstream sizes every segment from
+// chain[0] and would break on a chain whose length changes. The router is also
+// held to the svg viewBox (x from -1 to grid.width, y from -2 to grid.height+1)
+// rather than upstream's looser isInsideLarge margin, because a snake outside
+// that box is drawn clipped at the edge.
 //
 // Usage: node scripts/patch-snake-growth.mjs <path-to-snk-checkout>
 
@@ -46,7 +52,6 @@ const GROWING_ROUTE_TS = `import {
   getColor,
   isEmpty,
   isInside,
-  isInsideLarge,
   setColorEmpty,
   copyGrid,
 } from "@snk/types/grid";
@@ -56,9 +61,14 @@ import type { Grid } from "@snk/types/grid";
 import type { Point } from "@snk/types/point";
 import type { Snake } from "@snk/types/snake";
 
-// The snake may roam this far outside the grid, matching getPathTo's
-// isInsideLarge(grid, 2, ...). On a 53x7 grid that is a 57x11 arena.
+// The snake may roam one cell to the left/right of the grid and two rows above
+// it. Upstream's isInsideLarge(grid, 2, ...) is looser than that, but the svg
+// viewBox only spans x from -1 to grid.width and y from -2 to grid.height+1 --
+// anything outside gets clipped, so the snake would visibly run off the edge.
 const MARGIN = 2;
+
+const inArena = (grid: Grid, x: number, y: number) =>
+  x >= -1 && x <= grid.width && y >= -2 && y <= grid.height + 1;
 
 // Safety valve: a stuck search must fail loudly rather than spin forever.
 const MAX_STEPS = 100000;
@@ -67,8 +77,7 @@ const keyOf = (x: number, y: number) => (x + MARGIN) * 4096 + (y + MARGIN);
 
 /** Inside the arena, and not an uneaten contribution cell. */
 const isFree = (grid: Grid, x: number, y: number) =>
-  isInsideLarge(grid, MARGIN, x, y) &&
-  (!isInside(grid, x, y) || isEmpty(getColor(grid, x, y)));
+  inArena(grid, x, y) && (!isInside(grid, x, y) || isEmpty(getColor(grid, x, y)));
 
 const isFood = (grid: Grid, x: number, y: number) =>
   isInside(grid, x, y) && !isEmpty(getColor(grid, x, y));
@@ -116,7 +125,7 @@ const reachableCount = (
       if (
         seen.has(k) ||
         blocked.has(k) ||
-        !isInsideLarge(grid, MARGIN, nx, ny)
+        !inArena(grid, nx, ny)
       )
         continue;
       seen.add(k);
@@ -143,7 +152,7 @@ const stepTowardFood = (grid: Grid, cells: Point[]): Point | null => {
     const nx = head.x + a.x;
     const ny = head.y + a.y;
     const k = keyOf(nx, ny);
-    if (blocked.has(k) || !isInsideLarge(grid, MARGIN, nx, ny)) continue;
+    if (blocked.has(k) || !inArena(grid, nx, ny)) continue;
     if (isFood(grid, nx, ny)) return a;
     if (!isFree(grid, nx, ny)) continue;
     seen.add(k);
@@ -156,7 +165,7 @@ const stepTowardFood = (grid: Grid, cells: Point[]): Point | null => {
       const nx = p.x + a.x;
       const ny = p.y + a.y;
       const k = keyOf(nx, ny);
-      if (seen.has(k) || blocked.has(k) || !isInsideLarge(grid, MARGIN, nx, ny))
+      if (seen.has(k) || blocked.has(k) || !inArena(grid, nx, ny))
         continue;
       if (isFood(grid, nx, ny)) return first;
       if (!isFree(grid, nx, ny)) continue;
@@ -178,7 +187,7 @@ const advance = (grid: Grid, cells: Point[], d: Point) => {
 const isLegal = (grid: Grid, cells: Point[], d: Point) => {
   const nx = cells[0].x + d.x;
   const ny = cells[0].y + d.y;
-  if (!isInsideLarge(grid, MARGIN, nx, ny)) return false;
+  if (!inArena(grid, nx, ny)) return false;
   const willGrow = isFood(grid, nx, ny);
   return !bodyBlocks(cells, willGrow).has(keyOf(nx, ny));
 };
@@ -215,7 +224,7 @@ const isSafe = (grid: Grid, cells: Point[], d: Point) => {
       const ny = c.y + a.y;
       const k = keyOf(nx, ny);
       if (nx === tail.x && ny === tail.y) tailReached = true;
-      if (seen.has(k) || blocked.has(k) || !isInsideLarge(nextGrid, MARGIN, nx, ny))
+      if (seen.has(k) || blocked.has(k) || !inArena(nextGrid, nx, ny))
         continue;
       seen.add(k);
       queue.push({ x: nx, y: ny });
@@ -310,7 +319,7 @@ const returnHome = (
 ) => {
   const laneY = home[0].y;
   const homeX = home[0].x;
-  const entryX = grid.width + MARGIN - 1;
+  const entryX = grid.width;
 
   /** Can the snake walk the whole lane from here without meeting itself? */
   const laneIsClear = (from: Point[]) => {
@@ -404,8 +413,8 @@ const assertLegal = (
       if (seen.has(k))
         throw new Error(\`frame \${t}: snake bites itself at \${p.x},\${p.y}\`);
       seen.add(k);
-      if (!isInsideLarge(grid0, MARGIN, p.x, p.y))
-        throw new Error(\`frame \${t}: cell \${p.x},\${p.y} left the arena\`);
+      if (!inArena(grid0, p.x, p.y))
+        throw new Error(\`frame \${t}: cell \${p.x},\${p.y} would be clipped\`);
     }
 
     if (t === 0) continue;
@@ -503,7 +512,7 @@ export const getGrowingRoute = (grid0: Grid, snake0: Snake): Snake[] | null => {
 };
 `;
 
-const SNAKE_RENDERER_TS = `import { snakeToCells } from "@snk/types/snake";
+const SNAKE_TS = `import { snakeToCells } from "@snk/types/snake";
 import type { Snake } from "@snk/types/snake";
 import type { Point } from "@snk/types/point";
 import { h } from "./xml-utils";
@@ -651,10 +660,187 @@ const removeInterpolatedPositions = <T extends Point>(arr: T[]) =>
   });
 `;
 
-const write = (relPath, contents) => {
-  writeFileSync(join(root, relPath), contents);
-  console.log(`wrote ${relPath}`);
+const GRID_TS = `import type { Color, Empty } from "@snk/types/grid";
+import type { Point } from "@snk/types/point";
+import { createAnimation } from "./css-utils";
+import { h } from "./xml-utils";
+
+export type Options = {
+  colorDots: Record<Color, string>;
+  colorEmpty: string;
+  colorDotBorder: string;
+  sizeCell: number;
+  sizeDot: number;
+  sizeDotBorderRadius: number;
 };
+
+export const createGrid = (
+  cells: (Point & { t: number | null; color: Color | Empty })[],
+  { sizeDotBorderRadius, sizeDot, sizeCell }: Options,
+  duration: number,
+  // Fraction of the animation at which the outro starts. Eaten cells grow back
+  // across it, so the last frame matches the first and the grid does not pop
+  // when the loop restarts. 1 means there is no outro -- keep cells eaten.
+  outroStart: number = 1,
+) => {
+  const svgElements: string[] = [];
+  const styles = [
+    \`.c{
+      shape-rendering: geometricPrecision;
+      fill: var(--ce);
+      stroke-width: 1px;
+      stroke: var(--cb);
+      animation: none \${duration}ms linear infinite;
+      width: \${sizeDot}px;
+      height: \${sizeDot}px;
+    }\`,
+  ];
+
+  let i = 0;
+  for (const { x, y, color, t } of cells) {
+    const id = t && "c" + (i++).toString(36);
+    const m = (sizeCell - sizeDot) / 2;
+
+    if (t !== null && id) {
+      const animationName = id;
+
+      const keyframes = [
+        { t: t - 0.0001, style: \`fill:var(--c\${color})\` },
+        { t: t + 0.0001, style: \`fill:var(--ce)\` },
+      ];
+      if (outroStart < 1 && t < outroStart) {
+        keyframes.push(
+          { t: outroStart, style: \`fill:var(--ce)\` },
+          { t: 1, style: \`fill:var(--c\${color})\` },
+        );
+      } else {
+        keyframes.push({ t: 1, style: \`fill:var(--ce)\` });
+      }
+
+      styles.push(
+        createAnimation(animationName, keyframes),
+
+        \`.c.\${id}{
+          fill: var(--c\${color});
+          animation-name: \${animationName}
+        }\`,
+      );
+    }
+
+    svgElements.push(
+      h("rect", {
+        class: ["c", id].filter(Boolean).join(" "),
+        x: x * sizeCell + m,
+        y: y * sizeCell + m,
+        rx: sizeDotBorderRadius,
+        ry: sizeDotBorderRadius,
+      }),
+    );
+  }
+
+  return { svgElements, styles };
+};
+`;
+
+const STACK_TS = `import type { Color, Empty } from "@snk/types/grid";
+import { createAnimation } from "./css-utils";
+import { h } from "./xml-utils";
+
+export type Options = {
+  sizeDot: number;
+};
+
+export const createStack = (
+  cells: { t: number | null; color: Color | Empty }[],
+  { sizeDot }: Options,
+  width: number,
+  y: number,
+  duration: number,
+  // See createGrid: the bar unwinds across the outro so the loop is seamless.
+  outroStart: number = 1,
+) => {
+  const svgElements: string[] = [];
+  const styles = [
+    \`.u{ 
+      transform-origin: 0 0;
+      transform: scale(0,1);
+      animation: none linear \${duration}ms infinite;
+    }\`,
+  ];
+
+  const stack = cells
+    .slice()
+    .filter((a) => a.t !== null)
+    .sort((a, b) => a.t! - b.t!) as any[];
+
+  const blocks: { color: Color; ts: number[] }[] = [];
+  stack.forEach(({ color, t }) => {
+    const latest = blocks[blocks.length - 1];
+    if (latest?.color === color) latest.ts.push(t);
+    else blocks.push({ color, ts: [t] });
+  });
+
+  const m = width / stack.length;
+  let i = 0;
+  let nx = 0;
+  for (const { color, ts } of blocks) {
+    const id = "u" + (i++).toString(36);
+    const animationName = id;
+    const x = (nx * m).toFixed(1);
+
+    nx += ts.length;
+
+    svgElements.push(
+      h("rect", {
+        class: \`u \${id}\`,
+        height: sizeDot,
+        width: (ts.length * m + 0.6).toFixed(1),
+        x,
+        y,
+      }),
+    );
+
+    styles.push(
+      createAnimation(
+        animationName,
+        [
+          ...ts
+            .map((t, i, { length }) => [
+              { scale: i / length, t: t - 0.0001 },
+              { scale: (i + 1) / length, t: t + 0.0001 },
+            ])
+            .flat(),
+          ...(outroStart < 1
+            ? [
+                { scale: 1, t: outroStart },
+                { scale: 0, t: 1 },
+              ]
+            : [{ scale: 1, t: 1 }]),
+        ].map(({ scale, t }) => ({
+          t,
+          style: \`transform:scale(\${scale.toFixed(3)},1)\`,
+        })),
+      ),
+
+      \`.u.\${id} {
+        fill: var(--c\${color});
+        animation-name: \${animationName};
+        transform-origin: \${x}px 0
+      }
+      \`,
+    );
+  }
+
+  return { svgElements, styles };
+};
+`;
+
+const REPLACEMENTS = [
+  ["packages/solver/getGrowingRoute.ts", GROWING_ROUTE_TS],
+  ["packages/svg-creator/snake.ts", SNAKE_TS],
+  ["packages/svg-creator/grid.ts", GRID_TS],
+  ["packages/svg-creator/stack.ts", STACK_TS],
+];
 
 /** Fail loudly if upstream moved, rather than silently emitting a stock snake. */
 const patch = (relPath, expect, transform) => {
@@ -666,14 +852,16 @@ const patch = (relPath, expect, transform) => {
         `Upstream snk has changed -- re-check the patch before trusting the output.`,
     );
   }
-  const after = transform(before);
-  writeFileSync(file, after);
+  writeFileSync(file, transform(before));
   console.log(`patched ${relPath}`);
 };
 
-write("packages/solver/getGrowingRoute.ts", GROWING_ROUTE_TS);
-write("packages/svg-creator/snake.ts", SNAKE_RENDERER_TS);
+for (const [relPath, contents] of REPLACEMENTS) {
+  writeFileSync(join(root, relPath), contents);
+  console.log(`wrote ${relPath}`);
+}
 
+// Route with the growing solver, keeping upstream's as a fallback.
 patch(
   "packages/generate-snake-animation/generateSnakeAnimation.ts",
   "const chain = getBestRoute(grid, snake)!;",
@@ -698,6 +886,41 @@ patch(
           "    chain.push(...getPathToPose(chain.slice(-1)[0], snake)!);",
           "  }",
         ].join("\n"),
+      ),
+);
+
+// Hand the outro window to the grid and the stack so they unwind with the snake.
+patch(
+  "packages/svg-creator/index.ts",
+  "createGrid(livingCells, drawOptions, duration),",
+  (s) =>
+    s
+      .replace(
+        'import { getHeadX, getHeadY } from "@snk/types/snake";',
+        'import { getHeadX, getHeadY, getSnakeLength } from "@snk/types/snake";',
+      )
+      .replace(
+        "  const elements = [\n" +
+          "    createGrid(livingCells, drawOptions, duration),",
+        [
+          "  // The outro is the trailing run of frames where the snake only gets",
+          "  // shorter, retracting into its starting pose. The grid and the stack",
+          "  // unwind across the same window so every layer ends where it began.",
+          "  let outroFrom = chain.length;",
+          "  while (",
+          "    outroFrom > 1 &&",
+          "    getSnakeLength(chain[outroFrom - 1]) < getSnakeLength(chain[outroFrom - 2])",
+          "  )",
+          "    outroFrom--;",
+          "  const outroStart = outroFrom / chain.length;",
+          "",
+          "  const elements = [",
+          "    createGrid(livingCells, drawOptions, duration, outroStart),",
+        ].join("\n"),
+      )
+      .replace(
+        "      (grid.height + 2) * drawOptions.sizeCell,\n      duration,\n    ),",
+        "      (grid.height + 2) * drawOptions.sizeCell,\n      duration,\n      outroStart,\n    ),",
       ),
 );
 
