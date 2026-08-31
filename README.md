@@ -14,7 +14,7 @@
 🤖 Developing AI Agents, MCP Servers & Intelligent Automation Platforms<br>
 ☁️ Building scalable cloud-native applications on AWS with serverless architectures<br>
 🧠 Passionate about Agentic AI, RAG, Voice AI, AI Infrastructure & Developer Experience<br>
-💬 Ask me about AI, LLMs, MCP, AWS, Node.js, Next.js, TypeScript and System Design<br>
+💬 Ask me about AI, LLMs, MCP, AWS, Node.js, Next.js, React Native/Expo, TypeScript and System Design<br>
 🌱 Currently exploring distributed AI systems, real-time AI, and autonomous workflows<br>
 ⚡ I enjoy turning ambitious product ideas into production-ready software.
 
@@ -44,6 +44,16 @@
 ![Next JS](https://img.shields.io/badge/Next-black?style=for-the-badge&logo=next.js&logoColor=white)
 ![Remix](https://img.shields.io/badge/Remix-%23000.svg?style=for-the-badge&logo=remix&logoColor=white)
 
+### Mobile
+
+![React Native](https://img.shields.io/badge/React_Native-%2320232a.svg?style=for-the-badge&logo=react&logoColor=%2361DAFB)
+![Expo](https://img.shields.io/badge/Expo-000020.svg?style=for-the-badge&logo=expo&logoColor=white)
+![Expo Router](https://img.shields.io/badge/Expo_Router-000020.svg?style=for-the-badge&logo=expo&logoColor=white)
+![EAS Build](https://img.shields.io/badge/EAS_Build-4630EB.svg?style=for-the-badge&logo=expo&logoColor=white)
+![Android](https://img.shields.io/badge/Android-3DDC84.svg?style=for-the-badge&logo=android&logoColor=white)
+![Expo Notifications](https://img.shields.io/badge/Push_Notifications-1B1F23.svg?style=for-the-badge&logo=expo&logoColor=white)
+![Google Play](https://img.shields.io/badge/Google_Play-414141.svg?style=for-the-badge&logo=googleplay&logoColor=white)
+
 ### Backend
 
 ![NodeJS](https://img.shields.io/badge/Node.js-6DA55F?style=for-the-badge&logo=node.js&logoColor=white)
@@ -72,6 +82,9 @@
 ![GitHub Actions](https://img.shields.io/badge/GitHub%20Actions-%232671E5.svg?style=for-the-badge&logo=githubactions&logoColor=white)
 ![Jenkins](https://img.shields.io/badge/Jenkins-%232C5263.svg?style=for-the-badge&logo=jenkins&logoColor=white)
 ![Bun](https://img.shields.io/badge/Bun-%23000000.svg?style=for-the-badge&logo=bun&logoColor=white)
+![Vitest](https://img.shields.io/badge/Vitest-6E9F18.svg?style=for-the-badge&logo=vitest&logoColor=white)
+![ESLint](https://img.shields.io/badge/ESLint-4B32C3.svg?style=for-the-badge&logo=eslint&logoColor=white)
+![Expo EAS](https://img.shields.io/badge/OTA_Updates-000020.svg?style=for-the-badge&logo=expo&logoColor=white)
 
 ### AI & Infrastructure
 
@@ -90,6 +103,7 @@
 - 🎙️ Real-time voice AI agents with their own retrieval layer
 - 💬 Multi-channel support across web chat, WhatsApp, and inbound ads
 - ⚙️ Queue-backed ingestion — crawling, parsing, and embedding at scale
+- 📱 A native Android companion app (Expo + expo-router) that pushes a lead to your lock screen the moment it lands
 - ☁️ Serverless AI infrastructure on AWS, event-driven end to end
 
 ---
@@ -106,6 +120,7 @@ The request path stays fast. Everything slow moves to a queue or a state machine
 - **Atomic claim tables** — single-writer guarantees for anything that must happen exactly once, so no lead ever gets contacted twice
 - **KMS-encrypted credentials, S3 presigned uploads, SES transactional email, Cognito JWT on every protected route**
 - **Serverless-first** — no idle servers, cost tracks real traffic
+- **Mobile as a notification surface, not a second dashboard** — the Android app does one job (lead lands → push → deep link straight to that lead), with Cognito tokens in the Android Keystore via expo-secure-store, single-flight token refresh, and OTA updates for JS-only fixes
 
 ---
 
