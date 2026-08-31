@@ -52,6 +52,8 @@
 ![EAS Build](https://img.shields.io/badge/EAS_Build-4630EB.svg?style=for-the-badge&logo=expo&logoColor=white)
 ![Android](https://img.shields.io/badge/Android-3DDC84.svg?style=for-the-badge&logo=android&logoColor=white)
 ![Expo Notifications](https://img.shields.io/badge/Push_Notifications-1B1F23.svg?style=for-the-badge&logo=expo&logoColor=white)
+![Firebase](https://img.shields.io/badge/Firebase-FFCA28.svg?style=for-the-badge&logo=firebase&logoColor=black)
+![FCM](https://img.shields.io/badge/FCM_V1-039BE5.svg?style=for-the-badge&logo=firebase&logoColor=white)
 ![Google Play](https://img.shields.io/badge/Google_Play-414141.svg?style=for-the-badge&logo=googleplay&logoColor=white)
 
 ### Backend
